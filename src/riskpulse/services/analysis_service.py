@@ -21,9 +21,13 @@ from riskpulse.data.market_data import build_selected_frame, fetch_fundamentals,
 from riskpulse.domain.models import AnalysisRequest, AnalysisResult
 from riskpulse.reporting.charts import cumulative_return_chart, volatility_chart
 from riskpulse.reporting.csv_exporter import export_main_csv, export_price_only_csv
+from riskpulse.reporting.filenames import cumulative_chart_path, price_csv_path, summary_csv_path, volatility_chart_path
+from riskpulse.reporting.validation import validate_artifacts, validate_metrics, validate_selected_frame
+from riskpulse.services.validation import validate_analysis_request
 
 
 def run_analysis(request: AnalysisRequest) -> AnalysisResult:
+    validate_analysis_request(request)
     warnings: list[str] = []
 
     extended_start = min(request.start, request.end - timedelta(days=420))
@@ -33,6 +37,7 @@ def run_analysis(request: AnalysisRequest) -> AnalysisResult:
     selected_stock = stock_ext[(stock_ext["Date"] >= request.start) & (stock_ext["Date"] <= request.end)].copy()
     selected_bench = bench_ext[(bench_ext["Date"] >= request.start) & (bench_ext["Date"] <= request.end)].copy()
     selected = build_selected_frame(selected_stock, selected_bench)
+    validate_selected_frame(selected)
 
     sr = selected["stock_daily_return"]
     br = selected["benchmark_daily_return"]
@@ -55,9 +60,10 @@ def run_analysis(request: AnalysisRequest) -> AnalysisResult:
         fundamentals = fetch_fundamentals(request.ticker)
         metrics["piotroski_f_score"] = piotroski_f_score(fundamentals)
         if metrics["piotroski_f_score"] is None:
-            warnings.append("Piotroski F-score unavailable due insufficient fundamentals")
+            warnings.append("Piotroski F-score unavailable due to insufficient fundamentals.")
     except Exception as e:
         warnings.append(f"Fundamentals fetch failed: {e}")
+    validate_metrics(metrics)
 
     period_returns = {
         "stock_period_return": period_return(selected["stock_price"]),
@@ -66,13 +72,13 @@ def run_analysis(request: AnalysisRequest) -> AnalysisResult:
 
     out = request.output_dir
     out.mkdir(parents=True, exist_ok=True)
-    period_slug = f"{request.start.date()}_{request.end.date()}"
     artifacts = {
-        "main_csv": str(export_main_csv(selected, out / f"riskpulse_main_{request.ticker}_{period_slug}.csv")),
-        "price_csv": str(export_price_only_csv(selected, out / f"riskpulse_prices_{request.ticker}_{period_slug}.csv")),
-        "cum_chart": str(cumulative_return_chart(selected, out / f"riskpulse_cumulative_{request.ticker}_{period_slug}.png", request.ticker)),
-        "vol_chart": str(volatility_chart(selected, out / f"riskpulse_volatility_{request.ticker}_{period_slug}.png")),
+        "main_csv": str(export_main_csv(selected, summary_csv_path(out, request))),
+        "price_csv": str(export_price_only_csv(selected, price_csv_path(out, request))),
+        "cum_chart": str(cumulative_return_chart(selected, cumulative_chart_path(out, request), request.ticker)),
+        "vol_chart": str(volatility_chart(selected, volatility_chart_path(out, request))),
     }
+    validate_artifacts(artifacts)
 
     return AnalysisResult(
         request=request,

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from datetime import datetime
+from pathlib import Path
 
 
 TICKER_PATTERN = re.compile(r"^[A-Za-z0-9.-]{1,5}$")
@@ -33,3 +34,9 @@ def validate_rolling_days(value: int) -> int:
 def validate_date_range(start: datetime, end: datetime) -> None:
     if start >= end:
         raise ValueError("Start date must be earlier than end date.")
+
+
+def validate_output_dir(path: Path) -> Path:
+    if path.exists() and not path.is_dir():
+        raise ValueError("Output path must be a directory.")
+    return path

@@ -6,6 +6,7 @@ from pathlib import Path
 from riskpulse.cli.validators import (
     validate_date,
     validate_date_range,
+    validate_output_dir,
     validate_rolling_days,
     validate_ticker,
 )
@@ -69,4 +70,5 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         args.end_date = validate_date(args.end_date)
         validate_date_range(args.start_date, args.end_date)
 
+    args.output_dir = validate_output_dir(args.output_dir)
     return args
