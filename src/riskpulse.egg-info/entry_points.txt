@@ -1,0 +1,2 @@
+[console_scripts]
+riskpulse = riskpulse.main:main
