@@ -18,6 +18,14 @@ from riskpulse.web.app_support import (
 
 st.set_page_config(page_title="RiskPulse", page_icon="RP", layout="wide")
 
+ROLLING_PRESETS = {
+    "1 Week": 5,
+    "1 Month": 21,
+    "3 Months": 63,
+    "6 Months": 126,
+    "1 Year": 252,
+}
+
 
 def _render_results() -> None:
     result = st.session_state["analysis_result"]
@@ -120,13 +128,29 @@ def main() -> None:
         start_value = None
         end_value = None
         today = date.today()
+
         if mode == "Rolling Window":
-            rolling_days = st.slider("Rolling Business Days", min_value=5, max_value=252, value=60)
+            preset = st.selectbox("Quick Range", options=list(ROLLING_PRESETS.keys()), index=2)
+            rolling_days = ROLLING_PRESETS[preset]
+            st.caption(f"Using {preset} = {rolling_days} trading days")
+
+            manual_override = st.checkbox("Override preset manually", value=False)
+            if manual_override:
+                rolling_days = st.slider("Rolling Business Days", min_value=5, max_value=252, value=rolling_days)
         else:
+            quick_custom = st.selectbox(
+                "Quick Custom Fill",
+                options=["Custom", "1 Week", "1 Month", "3 Months", "6 Months", "1 Year"],
+                index=0,
+            )
+
+            default_days = ROLLING_PRESETS.get(quick_custom, 252)
+            default_start = today - timedelta(days=int(default_days * 1.6)) if quick_custom != "Custom" else today - timedelta(days=365)
+
             date_col1, date_col2 = st.columns(2)
             start_value = date_col1.date_input(
                 "Start Date",
-                value=today - timedelta(days=365),
+                value=default_start,
                 max_value=today,
             )
             end_value = date_col2.date_input(
